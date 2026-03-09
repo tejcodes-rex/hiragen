@@ -16,6 +16,13 @@ const createBotSchema = z.object({
   maxTaskReward: z.number().min(1).max(100000).optional(),
   maxTasksPerHour: z.number().min(1).max(50).optional(),
   hourlyRate: z.number().min(0).optional(),
+  enabledTools: z.array(z.string()).optional(),
+  agentType: z.enum(['INTERNAL_BOT', 'EXTERNAL_SDK', 'HUMAN']).optional(),
+  rating: z.number().min(0).max(5).optional(),
+  totalReviews: z.number().min(0).optional(),
+  tasksCompleted: z.number().min(0).optional(),
+  totalEarnings: z.number().min(0).optional(),
+  successRate: z.number().min(0).max(100).optional(),
 });
 
 const updateBotSchema = z.object({
@@ -30,6 +37,13 @@ const updateBotSchema = z.object({
   maxTasksPerHour: z.number().min(1).max(50).optional(),
   isActive: z.boolean().optional(),
   autoAccept: z.boolean().optional(),
+  enabledTools: z.array(z.string()).optional(),
+  agentType: z.enum(['INTERNAL_BOT', 'EXTERNAL_SDK', 'HUMAN']).optional(),
+  rating: z.number().min(0).max(5).optional(),
+  totalReviews: z.number().min(0).optional(),
+  tasksCompleted: z.number().min(0).optional(),
+  totalEarnings: z.number().min(0).optional(),
+  successRate: z.number().min(0).max(100).optional(),
 });
 
 function parseBotAgent(agent: any) {
@@ -73,7 +87,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 
 // Create a bot agent
 router.post('/', authenticate, validate(createBotSchema), async (req: AuthRequest, res: Response) => {
-  const { name, description, skills, systemPrompt, llmProvider, llmModel, categories, maxTaskReward, maxTasksPerHour, hourlyRate } = req.body;
+  const { name, description, skills, systemPrompt, llmProvider, llmModel, categories, maxTaskReward, maxTasksPerHour, hourlyRate, enabledTools, agentType, rating, totalReviews, tasksCompleted, totalEarnings, successRate } = req.body;
 
   // Create a system user for the bot
   const botEmail = `bot-${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}@hiragen.bot`;
@@ -105,6 +119,13 @@ router.post('/', authenticate, validate(createBotSchema), async (req: AuthReques
         maxTasksPerHour: maxTasksPerHour || 5,
         autoAccept: true,
         hourlyRate: hourlyRate || 0,
+        enabledTools: enabledTools ? JSON.stringify(enabledTools) : undefined,
+        agentType: agentType || 'INTERNAL_BOT',
+        rating: rating || 0,
+        totalReviews: totalReviews || 0,
+        tasksCompleted: tasksCompleted || 0,
+        totalEarnings: totalEarnings || 0,
+        successRate: successRate || 100,
       },
     });
   });
@@ -119,7 +140,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     return res.status(404).json({ success: false, error: 'Bot agent not found' });
   }
 
-  const { name, description, skills, systemPrompt, llmProvider, llmModel, categories, maxTaskReward, maxTasksPerHour, isActive, autoAccept } = req.body;
+  const { name, description, skills, systemPrompt, llmProvider, llmModel, categories, maxTaskReward, maxTasksPerHour, isActive, autoAccept, enabledTools, agentType, rating, totalReviews, tasksCompleted, totalEarnings, successRate } = req.body;
 
   const updated = await req.prisma.agent.update({
     where: { id: req.params.id },
@@ -135,6 +156,13 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       ...(maxTasksPerHour !== undefined && { maxTasksPerHour }),
       ...(isActive !== undefined && { isActive }),
       ...(autoAccept !== undefined && { autoAccept }),
+      ...(enabledTools && { enabledTools: JSON.stringify(enabledTools) }),
+      ...(agentType && { agentType }),
+      ...(rating !== undefined && { rating }),
+      ...(totalReviews !== undefined && { totalReviews }),
+      ...(tasksCompleted !== undefined && { tasksCompleted }),
+      ...(totalEarnings !== undefined && { totalEarnings }),
+      ...(successRate !== undefined && { successRate }),
     },
   });
 
