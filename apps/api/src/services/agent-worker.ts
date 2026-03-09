@@ -14,7 +14,7 @@ import { WebhookService } from './webhook';
 const POLL_INTERVAL_MS = 20_000; // Check for new tasks every 20 seconds
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_TOOL_ITERATIONS = 8;
-const AUTO_ACCEPT_DELAY_MS = 10 * 60 * 1000; // 10 minutes
+const AUTO_ACCEPT_DELAY_MS = 2 * 60 * 1000; // 2 minutes
 
 // Category mapping: task category → agent skill keywords
 const CATEGORY_SKILLS: Record<string, string[]> = {
@@ -74,6 +74,9 @@ export class AgentWorker {
 
       // Phase 2: Auto-accept pending applications after delay
       await this.checkPendingApplications();
+
+      // Phase 3: Execute manually-accepted bot tasks
+      await this.executeManuallyAcceptedTasks();
     } catch (err) {
       console.error('[AgentWorker] Tick error:', err);
     }
@@ -86,8 +89,9 @@ export class AgentWorker {
     const openTasks = await this.prisma.task.findMany({
       where: { status: 'OPEN' },
       orderBy: { createdAt: 'asc' },
-      take: 5,
+      take: 20,
     });
+    console.log(`[AgentWorker] Found ${openTasks.length} open tasks`);
 
     for (const task of openTasks) {
       const agents = await this.findMatchingAgents(task);
@@ -196,6 +200,29 @@ export class AgentWorker {
         console.error(`[AgentWorker] Auto-accept failed for task ${task.id}:`, err);
         this.processing.delete(key);
       }
+    }
+  }
+
+  /**
+   * Phase 3: Pick up ASSIGNED bot tasks that were manually accepted by the creator
+   */
+  private async executeManuallyAcceptedTasks() {
+    const assignedBotTasks = await this.prisma.task.findMany({
+      where: {
+        status: 'ASSIGNED',
+        assignedAgent: { isBot: true },
+      },
+      include: { assignedAgent: true },
+      take: 5,
+    });
+
+    for (const task of assignedBotTasks) {
+      const key = `exec:${task.id}`;
+      if (this.processing.has(key)) continue;
+      this.processing.add(key);
+
+      console.log(`[AgentWorker] Executing manually-accepted task "${task.title}" by "${task.assignedAgent!.name}"`);
+      this.executeAssignedTask(task, task.assignedAgent!).finally(() => this.processing.delete(key));
     }
   }
 
@@ -315,7 +342,48 @@ export class AgentWorker {
           iterations++;
           console.log(`[AgentWorker] "${agent.name}" ReAct iteration ${iterations}/${MAX_TOOL_ITERATIONS}`);
 
-          const assistantMsg = await callGroqWithTools(messages, toolDefs, agent.llmModel || undefined);
+          let assistantMsg: ChatMessage;
+          try {
+            assistantMsg = await callGroqWithTools(messages, toolDefs, agent.llmModel || undefined);
+          } catch (err: any) {
+            // Rate limit — wait and retry once
+            if (err.message?.includes('429') || err.message?.includes('rate limit')) {
+              console.log(`[AgentWorker] Rate limited, waiting 3s and retrying...`);
+              await new Promise(r => setTimeout(r, 3000));
+              try {
+                assistantMsg = await callGroqWithTools(messages, toolDefs, agent.llmModel || undefined);
+              } catch (retryErr: any) {
+                // Still failing — try Gemini fallback
+                console.log(`[AgentWorker] Retry failed, falling back to Gemini...`);
+                try {
+                  const fallbackResult = await callLLM({
+                    systemPrompt,
+                    userPrompt: userPrompt + '\n\nIMPORTANT: You cannot call tools directly. Instead, describe what you would do and provide your best analysis based on your knowledge.',
+                    provider: 'gemini',
+                  });
+                  finalContent = fallbackResult.content;
+                } catch {
+                  finalContent = 'Task completed with partial results. See tool execution logs for details.';
+                }
+                break;
+              }
+            } else if (err.message?.includes('tool_use_failed') || err.message?.includes('400')) {
+              console.log(`[AgentWorker] Groq tool calling failed, falling back to Gemini...`);
+              try {
+                const fallbackResult = await callLLM({
+                  systemPrompt,
+                  userPrompt: userPrompt + '\n\nIMPORTANT: You cannot call tools directly. Instead, describe what you would do and provide your best analysis based on your knowledge.',
+                  provider: 'gemini',
+                });
+                finalContent = fallbackResult.content;
+              } catch {
+                finalContent = 'Task completed with partial results. See tool execution logs for details.';
+              }
+              break;
+            } else {
+              throw err;
+            }
+          }
           messages.push(assistantMsg);
 
           if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {

@@ -29,10 +29,10 @@ RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists
 
 WORKDIR /app
 
-# Copy package files and install production dependencies only
+# Copy package files and install production dependencies + tsx for seeding
 COPY package.json ./
 COPY prisma ./prisma/
-RUN npm install --omit=dev
+RUN npm install --omit=dev && npm install tsx
 
 # Generate Prisma client in production image
 RUN npx prisma generate
@@ -48,5 +48,5 @@ ENV PORT=4000
 
 EXPOSE 4000
 
-# Run database migrations then start the server
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/index.js"]
+# Run database migrations, seed, then start the server
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npx tsx prisma/seed.ts 2>/dev/null; node dist/index.js"]

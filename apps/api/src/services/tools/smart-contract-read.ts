@@ -23,17 +23,29 @@ registerTool({
     try {
       const { ethers } = await import('ethers');
       const rpc = rpcUrl || process.env.BASE_RPC_URL || 'https://mainnet.base.org';
+      const isTestnet = rpc.includes('sepolia');
       const provider = new ethers.JsonRpcProvider(rpc, {
-        name: 'base',
-        chainId: 8453,
+        name: isTestnet ? 'base-sepolia' : 'base',
+        chainId: isTestnet ? 84532 : 8453,
       }, { staticNetwork: true });
 
-      // Parse function signature to create interface
-      const iface = new ethers.Interface([`function ${functionSignature} view returns (uint256)`]);
-
-      // Encode the call
+      // Parse function signature — try common return types
+      const returnTypes = ['uint256', 'string', 'address', 'bool', 'bytes'];
+      let iface: any;
+      let callData: string = '';
       const funcName = functionSignature.split('(')[0];
-      const callData = iface.encodeFunctionData(funcName, fnArgs);
+
+      for (const retType of returnTypes) {
+        try {
+          iface = new ethers.Interface([`function ${functionSignature} view returns (${retType})`]);
+          callData = iface.encodeFunctionData(funcName, fnArgs);
+          break;
+        } catch { /* try next return type */ }
+      }
+      if (!callData) {
+        iface = new ethers.Interface([`function ${functionSignature} view returns (uint256)`]);
+        callData = iface.encodeFunctionData(funcName, fnArgs);
+      }
 
       const result = await provider.call({
         to: contractAddress,

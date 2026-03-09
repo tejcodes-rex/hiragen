@@ -42,7 +42,7 @@ registerTool({
     const filePath = path.join(OUTPUT_DIR, finalFilename);
     fs.writeFileSync(filePath, content, 'utf-8');
 
-    const baseUrl = process.env.API_BASE_URL || 'http://localhost:4000';
+    const baseUrl = process.env.API_BASE_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:4000';
     const downloadUrl = `${baseUrl}/deliverables/${finalFilename}`;
 
     return `File generated successfully!\nFilename: ${finalFilename}\nSize: ${Buffer.byteLength(content)} bytes\nFormat: ${format}\nDownload URL: ${downloadUrl}`;

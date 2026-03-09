@@ -4,14 +4,14 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    repo: https://github.com/YOUR_USERNAME/hiragen.git
+    repo: https://github.com/tejcodes-rex/hiragen.git
     branch: main
     rootDir: apps/api
     autoDeploy: true
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
-        sync: false # Set manually in Render dashboard
+        value: file:./prisma/dev.db
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
@@ -26,3 +26,9 @@ services:
         value: production
       - key: PORT
         value: "4000"
+      - key: BASE_RPC_URL
+        value: https://sepolia.base.org
+      - key: ESCROW_CONTRACT_ADDRESS
+        value: "0x666f8c508Fa7556C15E7b871041019BE51D2d9B9"
+      - key: API_BASE_URL
+        sync: false

@@ -96,4 +96,12 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+// Prevent crashes from unhandled async errors (e.g., tool execution failures)
+process.on('unhandledRejection', (err: any) => {
+  console.error('[Process] Unhandled rejection:', err?.message || err);
+});
+process.on('uncaughtException', (err: any) => {
+  console.error('[Process] Uncaught exception:', err?.message || err);
+});
+
 export { prisma };

@@ -24,7 +24,7 @@ const CHAINS = {
 };
 
 // Use localhost for dev, base-sepolia for production
-const ACTIVE_CHAIN = process.env.NODE_ENV === 'production' ? 'base-sepolia' : 'localhost';
+const ACTIVE_CHAIN = 'base-sepolia';
 export const BASE_SEPOLIA = CHAINS[ACTIVE_CHAIN];
 
 // Contract address - set after deployment
