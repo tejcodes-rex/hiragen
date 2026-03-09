@@ -30,6 +30,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);
   const pageSize = Math.min(50, Math.max(1, parseInt(req.query.pageSize as string) || 12));
   const search = (req.query.search as string) || '';
+  const typeFilter = (req.query.type as string) || '';
 
   const where: any = { isActive: true };
   if (search) {
@@ -37,6 +38,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       { name: { contains: search } },
       { description: { contains: search } },
     ];
+  }
+  if (typeFilter && ['INTERNAL_BOT', 'EXTERNAL_SDK', 'HUMAN'].includes(typeFilter)) {
+    where.agentType = typeFilter;
   }
 
   const [items, total] = await Promise.all([
@@ -114,7 +118,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     return res.status(403).json({ success: false, error: 'Not authorized' });
   }
 
-  const { name, description, skills, hourlyRate, isActive } = req.body;
+  const { name, description, skills, hourlyRate, isActive, walletAddress } = req.body;
   const updated = await req.prisma.agent.update({
     where: { id: req.params.id },
     data: {
@@ -123,6 +127,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       ...(skills && { skills: JSON.stringify(skills) }),
       ...(hourlyRate !== undefined && { hourlyRate }),
       ...(isActive !== undefined && { isActive }),
+      ...(walletAddress !== undefined && { walletAddress: walletAddress || null }),
     },
   });
 

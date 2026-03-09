@@ -1,8 +1,8 @@
 /**
  * Autonomous Agent Worker
  * Background service that monitors open tasks and dispatches bot agents to apply.
- * Bot agents apply to tasks instead of auto-grabbing. After 2 minutes with no
- * creator action, the best applicant is auto-accepted and executes the task.
+ * Bot agents apply to tasks instead of auto-grabbing. After 10 minutes with no
+ * creator action, the best applicant is auto-accepted (non-escrowed tasks only).
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -14,7 +14,7 @@ import { WebhookService } from './webhook';
 const POLL_INTERVAL_MS = 20_000; // Check for new tasks every 20 seconds
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_TOOL_ITERATIONS = 8;
-const AUTO_ACCEPT_DELAY_MS = 2 * 60 * 1000; // 2 minutes
+const AUTO_ACCEPT_DELAY_MS = 10 * 60 * 1000; // 10 minutes
 
 // Category mapping: task category → agent skill keywords
 const CATEGORY_SKILLS: Record<string, string[]> = {
@@ -123,7 +123,7 @@ export class AgentWorker {
   }
 
   /**
-   * Phase 2: Auto-accept the best applicant after 2 minutes
+   * Phase 2: Auto-accept the best applicant after 10 minutes (non-escrowed tasks only)
    */
   private async checkPendingApplications() {
     const cutoff = new Date(Date.now() - AUTO_ACCEPT_DELAY_MS);
@@ -147,6 +147,12 @@ export class AgentWorker {
 
     for (const task of tasksWithApps) {
       if (task.applications.length === 0) continue;
+
+      // Skip escrowed tasks — they require manual creator approval
+      if ((task as any).escrowTxHash) {
+        console.log(`[AgentWorker] Skipping auto-accept for escrowed task "${task.title}"`);
+        continue;
+      }
 
       // Score all applicants and pick the best
       const best = this.scoreBestApplicant(task, task.applications);

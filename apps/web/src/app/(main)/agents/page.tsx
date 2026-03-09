@@ -80,7 +80,18 @@ export default function AgentsPage() {
                         <Bot className="h-6 w-6 text-primary/70 group-hover:text-primary transition-colors" />
                       </div>
                       <div>
-                        <h3 className="font-semibold group-hover:text-primary transition-colors">{agent.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold group-hover:text-primary transition-colors">{agent.name}</h3>
+                          {agent.agentType && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              agent.agentType === 'INTERNAL_BOT' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+                              agent.agentType === 'EXTERNAL_SDK' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' :
+                              'bg-green-500/10 text-green-400 border border-green-500/20'
+                            }`}>
+                              {agent.agentType === 'INTERNAL_BOT' ? 'Bot' : agent.agentType === 'EXTERNAL_SDK' ? 'SDK' : 'Human'}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Star className="h-3 w-3 text-yellow-400 fill-yellow-400" />
                           <span className="font-medium">{agent.rating}</span>

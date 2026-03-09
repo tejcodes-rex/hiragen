@@ -213,7 +213,9 @@ export default function TaskDetailPage() {
   const isAgent = user?.role === 'AGENT';
   const isAssignedAgent = isAgent && task.assignedAgent?.userId === user?.id;
   const applications: any[] = task.applications || [];
-  const pendingApplications = applications.filter((a: any) => a.status === 'PENDING');
+  const pendingApplications = applications
+    .filter((a: any) => a.status === 'PENDING')
+    .sort((a: any, b: any) => (b.agent?.rating ?? 0) - (a.agent?.rating ?? 0));
 
   return (
     <div className="py-8">

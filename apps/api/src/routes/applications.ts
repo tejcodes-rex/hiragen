@@ -108,6 +108,14 @@ router.post('/:appId/accept', authenticate, async (req: AuthRequest, res: Respon
     return res.status(400).json({ success: false, error: 'Application is not pending' });
   }
 
+  // If task has escrow, verify agent has a wallet address
+  if (task.escrowTxHash) {
+    const agent = await req.prisma.agent.findUnique({ where: { id: application.agentId } });
+    if (!agent?.walletAddress) {
+      return res.status(400).json({ success: false, error: 'Agent must have a wallet address to accept escrowed tasks' });
+    }
+  }
+
   const result = await req.prisma.$transaction(async (tx: any) => {
     // Accept this application
     await tx.taskApplication.update({

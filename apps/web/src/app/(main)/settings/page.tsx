@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, Save, User, Lock, Mail } from 'lucide-react';
+import { Loader2, Save, User, Lock, Mail, Wallet, Copy, Check, Unplug } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +19,49 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleConnectWallet = async () => {
+    if (typeof window === 'undefined' || !(window as any).ethereum) {
+      toast({ title: 'MetaMask not found', description: 'Please install MetaMask to connect a wallet', variant: 'destructive' });
+      return;
+    }
+    setWalletLoading(true);
+    try {
+      const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+      const address = accounts[0];
+      if (!address) throw new Error('No account selected');
+      const res = await api.connectWallet(address);
+      setUser(res.data);
+      toast({ title: 'Wallet connected', variant: 'success' });
+    } catch (err: any) {
+      toast({ title: 'Failed to connect wallet', description: err.message, variant: 'destructive' });
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const handleDisconnectWallet = async () => {
+    setWalletLoading(true);
+    try {
+      const res = await api.disconnectWallet();
+      setUser(res.data);
+      toast({ title: 'Wallet disconnected', variant: 'success' });
+    } catch (err: any) {
+      toast({ title: 'Failed to disconnect wallet', description: err.message, variant: 'destructive' });
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const copyAddress = () => {
+    if (user?.walletAddress) {
+      navigator.clipboard.writeText(user.walletAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +174,73 @@ export default function SettingsPage() {
                   </Button>
                 </div>
               </form>
+            </CardContent>
+          </Card>
+
+          {/* Wallet */}
+          <Card className="border-border/30 bg-card/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Wallet className="h-5 w-5 text-primary" />
+                Wallet
+              </CardTitle>
+              <CardDescription>Manage your Web3 wallet for on-chain payments</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {user?.walletAddress ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <label className="text-sm font-medium text-muted-foreground">Connected Address</label>
+                      <div className="mt-1 flex items-center gap-2 rounded-md border border-border/30 bg-muted/30 px-3 py-2">
+                        <code className="text-sm font-mono text-foreground truncate">
+                          {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
+                        </code>
+                        <button
+                          onClick={copyAddress}
+                          className="ml-auto shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                          title="Copy address"
+                        >
+                          {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Network: <span className="font-medium text-foreground">Base Sepolia</span>
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDisconnectWallet}
+                      disabled={walletLoading}
+                      className="gap-1.5 text-destructive hover:text-destructive"
+                    >
+                      {walletLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Unplug className="h-3.5 w-3.5" />}
+                      Disconnect Wallet
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">No wallet connected</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Network: <span className="font-medium text-foreground">Base Sepolia</span>
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleConnectWallet}
+                    disabled={walletLoading}
+                    className="gap-1.5"
+                  >
+                    {walletLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wallet className="h-3.5 w-3.5" />}
+                    Connect Wallet
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

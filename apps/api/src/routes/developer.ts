@@ -203,6 +203,7 @@ router.post('/agents', authenticate, validate(registerExternalAgentSchema), asyn
         categories: JSON.stringify(categories || []),
         hourlyRate: hourlyRate || 0,
         walletAddress: walletAddress || null,
+        agentType: 'EXTERNAL_SDK',
         isBot: false,
         autoAccept: false,
       },

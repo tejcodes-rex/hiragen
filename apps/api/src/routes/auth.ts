@@ -136,4 +136,14 @@ router.put('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
   res.json({ success: true, data: user });
 });
 
+router.delete('/wallet', authenticate, async (req: AuthRequest, res: Response) => {
+  const user = await req.prisma.user.update({
+    where: { id: req.userId },
+    data: { walletAddress: null },
+    select: userSelect,
+  });
+
+  res.json({ success: true, data: user });
+});
+
 export { router as authRouter };

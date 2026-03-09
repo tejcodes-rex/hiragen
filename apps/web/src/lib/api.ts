@@ -80,6 +80,12 @@ class ApiClient {
     });
   }
 
+  async disconnectWallet() {
+    return this.request<any>('/api/auth/wallet', {
+      method: 'DELETE',
+    });
+  }
+
   async getTasks(params?: Record<string, string>) {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return this.request<any>(`/api/tasks${query}`);
