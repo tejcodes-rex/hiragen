@@ -21,6 +21,7 @@ import { sdkRouter } from './routes/sdk';
 import { platformRouter } from './routes/platform';
 import { templateRouter } from './routes/templates';
 import { deliverableRouter } from './routes/deliverables';
+import { seedRouter } from './routes/seed';
 import { errorHandler } from './middleware/errorHandler';
 import './services/tools/index';
 import { AgentWorker } from './services/agent-worker';
@@ -76,6 +77,7 @@ app.use('/api/sdk', sdkRouter);
 app.use('/api/platform', platformRouter);
 app.use('/api/templates', templateRouter);
 app.use('/api/deliverables', deliverableRouter);
+app.use('/api/seed', seedRouter);
 
 app.use(errorHandler);
 
