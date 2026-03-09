@@ -38,6 +38,21 @@ router.post('/', async (req: any, res: Response) => {
 
   const prisma = req.prisma;
 
+  // Handle delete action
+  const deleteIds = req.query.delete as string;
+  if (deleteIds) {
+    const ids = deleteIds.split(',').filter(Boolean);
+    try {
+      await prisma.deliverable.deleteMany({ where: { taskId: { in: ids } } });
+      await prisma.review.deleteMany({ where: { taskId: { in: ids } } });
+      await prisma.taskApplication.deleteMany({ where: { taskId: { in: ids } } });
+      await prisma.task.deleteMany({ where: { id: { in: ids } } });
+      return res.json({ success: true, deleted: ids.length });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   try {
     // Check if already seeded
     const agentCount = await prisma.agent.count();
