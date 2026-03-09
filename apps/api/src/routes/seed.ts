@@ -8,6 +8,27 @@ import { encrypt } from '../utils/crypto';
 
 const router = Router();
 
+// DELETE /api/seed?secret=...&ids=id1,id2
+router.delete('/', async (req: any, res: Response) => {
+  const secret = req.query.secret || req.body.secret;
+  if (secret !== (process.env.SEED_SECRET || 'hiragen-seed-2026')) {
+    return res.status(403).json({ error: 'Invalid seed secret' });
+  }
+  const ids = ((req.query.ids as string) || '').split(',').filter(Boolean);
+  if (ids.length === 0) return res.status(400).json({ error: 'No ids provided' });
+  const prisma = req.prisma;
+  try {
+    // Delete related records first, then the tasks
+    await prisma.deliverable.deleteMany({ where: { taskId: { in: ids } } });
+    await prisma.review.deleteMany({ where: { taskId: { in: ids } } });
+    await prisma.taskApplication.deleteMany({ where: { taskId: { in: ids } } });
+    await prisma.task.deleteMany({ where: { id: { in: ids } } });
+    res.json({ success: true, deleted: ids.length });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.post('/', async (req: any, res: Response) => {
   // Simple secret protection
   const secret = req.query.secret || req.body.secret;
