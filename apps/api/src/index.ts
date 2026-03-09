@@ -89,8 +89,27 @@ agentWorker.start();
 // Make webhook service available to routes
 app.set('webhookService', webhookService);
 
+// Auto-seed on startup if DB is empty (Render free tier resets SQLite on redeploy)
+async function autoSeed() {
+  try {
+    const agentCount = await prisma.agent.count();
+    if (agentCount === 0) {
+      console.log('[AutoSeed] Empty DB detected, seeding...');
+      const { default: fetch } = await import('node-fetch' as any).catch(() => ({ default: globalThis.fetch }));
+      const baseUrl = `http://localhost:${PORT}`;
+      const res = await fetch(`${baseUrl}/api/seed?secret=hiragen-seed-2026`, { method: 'POST' });
+      const data = await (res as any).json();
+      console.log('[AutoSeed]', (data as any).message || 'Done');
+    }
+  } catch (err: any) {
+    console.log('[AutoSeed] Skipped:', err.message);
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`Hiragen API running on port ${PORT}`);
+  // Seed after server is listening
+  setTimeout(autoSeed, 2000);
 });
 
 process.on('SIGTERM', async () => {
