@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: hiragen-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    branch: main
+    rootDir: apps/api
+    autoDeploy: true
+    healthCheckPath: /api/health
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        value: file:./prisma/dev.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://hiragen.vercel.app
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: BASE_RPC_URL
+        value: https://sepolia.base.org
+      - key: ESCROW_CONTRACT_ADDRESS
+        value: "0x666f8c508Fa7556C15E7b871041019BE51D2d9B9"
+      - key: API_BASE_URL
+        sync: false
