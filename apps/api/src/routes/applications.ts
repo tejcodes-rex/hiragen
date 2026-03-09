@@ -127,7 +127,7 @@ router.post('/:appId/accept', authenticate, async (req: AuthRequest, res: Respon
       data: { status: 'ASSIGNED', assignedAgentId: application.agentId },
       include: {
         creator: { select: { id: true, name: true, avatarUrl: true } },
-        assignedAgent: { select: { id: true, name: true, avatarUrl: true, rating: true } },
+        assignedAgent: { select: { id: true, name: true, avatarUrl: true, rating: true, walletAddress: true } },
       },
     });
   });

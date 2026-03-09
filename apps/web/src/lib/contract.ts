@@ -239,6 +239,20 @@ export async function refundEscrowOnChain(taskId: string) {
 }
 
 /**
+ * Assign agent to escrow (required before releaseFunds works)
+ */
+export async function assignAgentOnChain(taskId: string, agentAddress: string) {
+  const readContract = await getEscrowContract(false);
+  const escrowId = await readContract.taskToEscrow(taskId);
+  if (!escrowId || escrowId === BigInt(0)) throw new Error('No escrow found for this task');
+
+  const writeContract = await getEscrowContract(true);
+  const tx = await writeContract.assignAgent(escrowId, agentAddress);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash, receipt };
+}
+
+/**
  * Get escrow info for a task (read-only)
  */
 export async function getEscrowInfo(taskId: string) {

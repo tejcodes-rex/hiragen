@@ -33,8 +33,11 @@ const PORT = process.env.PORT || 4000;
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(u => u.trim())
+  : ['http://localhost:3000', 'http://localhost:3001'];
 app.use(cors({
-  origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:3001'],
+  origin: allowedOrigins,
   credentials: true,
 }));
 

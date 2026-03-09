@@ -31,7 +31,7 @@ import { api } from '@/lib/api';
 import { useStore } from '@/lib/store';
 import { formatCurrency, formatDate, getStatusColor, getCategoryLabel } from '@/lib/utils';
 import { toast } from '@/components/ui/toaster';
-import { releaseFundsOnChain, ESCROW_CONTRACT_ADDRESS, BASE_SEPOLIA } from '@/lib/contract';
+import { releaseFundsOnChain, refundEscrowOnChain, assignAgentOnChain, ESCROW_CONTRACT_ADDRESS, BASE_SEPOLIA } from '@/lib/contract';
 
 export default function TaskDetailPage() {
   const params = useParams();
@@ -114,6 +114,15 @@ export default function TaskDetailPage() {
           toast({ title: 'Task approved! Payment released.', variant: 'success' });
           break;
         case 'cancel':
+          // If escrow exists on-chain, refund first
+          if (task.escrowTxHash && ESCROW_CONTRACT_ADDRESS) {
+            try {
+              toast({ title: 'Confirm refund in your wallet...', variant: 'default' });
+              await refundEscrowOnChain(task.id);
+            } catch (err: any) {
+              toast({ title: 'On-chain refund failed', description: 'Cancelling off-chain only.', variant: 'destructive' });
+            }
+          }
           await api.cancelTask(task.id);
           toast({ title: 'Task cancelled', variant: 'success' });
           break;
@@ -151,7 +160,19 @@ export default function TaskDetailPage() {
   const handleAcceptApp = async (appId: string) => {
     setActionLoading(true);
     try {
-      await api.acceptApplication(task.id, appId);
+      const res = await api.acceptApplication(task.id, appId);
+      const updatedTask = res.data;
+
+      // If escrow exists on-chain, assign the agent address so releaseFunds will work
+      if (task.escrowTxHash && ESCROW_CONTRACT_ADDRESS && updatedTask?.assignedAgent?.walletAddress) {
+        try {
+          toast({ title: 'Confirm agent assignment on-chain...', variant: 'default' });
+          await assignAgentOnChain(task.id, updatedTask.assignedAgent.walletAddress);
+        } catch (err: any) {
+          toast({ title: 'On-chain agent assignment failed', description: 'You can assign manually later before releasing funds.', variant: 'destructive' });
+        }
+      }
+
       toast({ title: 'Application accepted!', variant: 'success' });
       loadTask();
     } catch (err: any) {
