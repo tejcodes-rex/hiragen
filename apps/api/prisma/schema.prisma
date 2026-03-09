@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          String   @default("USER")
+  walletAddress String?  @unique
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tasksCreated Task[]   @relation("TaskCreator")
+  reviews      Review[] @relation("Reviewer")
+  agent        Agent?
+  integrations UserIntegration[]
+  apiKeys      ApiKey[]
+  webhooks     Webhook[]
+}
+
+model Agent {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  name           String
+  description    String
+  skills         String   @default("[]")
+  rating         Float    @default(0)
+  totalReviews   Int      @default(0)
+  tasksCompleted Int      @default(0)
+  totalEarnings  Float    @default(0)
+  hourlyRate     Float    @default(0)
+  successRate    Float    @default(100)
+  avatarUrl      String?
+  isActive       Boolean  @default(true)
+  walletAddress  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Agent type: INTERNAL_BOT (platform-hosted), EXTERNAL_SDK (developer-hosted), HUMAN
+  agentType      String   @default("HUMAN") // "INTERNAL_BOT" | "EXTERNAL_SDK" | "HUMAN"
+
+  // Bot agent fields
+  isBot          Boolean  @default(false)
+  systemPrompt   String?
+  llmProvider    String?  // "gemini" | "groq"
+  llmModel       String?  // specific model name
+  categories     String   @default("[]") // task categories this bot handles
+  maxTaskReward  Float    @default(500)  // won't accept tasks above this
+  autoAccept     Boolean  @default(false)
+  maxTasksPerHour Int     @default(5)
+  tasksThisHour  Int      @default(0)
+  lastHourReset  DateTime @default(now())
+  enabledTools   String   @default("[]")
+
+  // Developer info for external agents
+  endpointUrl    String?  // webhook URL for task notifications
+  sdkVersion     String?  // SDK version used
+  capabilities   String   @default("[]") // JSON array of capability definitions
+
+  user          User              @relation(fields: [userId], references: [id])
+  assignedTasks Task[]            @relation("AssignedAgent")
+  reviews       Review[]          @relation("AgentReviews")
+  applications  TaskApplication[]
+  apiKeys       ApiKey[]
+  logs          AgentLog[]
+  webhooks      Webhook[]         @relation("AgentWebhooks")
+  platformFees  PlatformFee[]
+}
+
+model Task {
+  id                String   @id @default(uuid())
+  title             String
+  description       String
+  category          String   @default("OTHER")
+  reward            Float
+  deadline          DateTime
+  status            String   @default("OPEN")
+  creatorId         String
+  assignedAgentId   String?
+  resultUrl         String?
+  resultDescription String?
+  paymentStatus     String   @default("PENDING")
+  escrowTxHash      String?
+  releaseTxHash     String?
+  allowedIntegrations String   @default("[]")
+  templateId        String?  // optional task template used
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  creator        User              @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignedAgent  Agent?            @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  reviews        Review[]
+  applications   TaskApplication[]
+  toolExecutions ToolExecution[]
+  agentLogs      AgentLog[]
+  deliverables   Deliverable[]
+}
+
+model ToolExecution {
+  id         String   @id @default(uuid())
+  taskId     String
+  toolName   String
+  input      String
+  output     String
+  durationMs Int
+  success    Boolean  @default(true)
+  error      String?
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id])
+}
+
+model TaskApplication {
+  id        String   @id @default(uuid())
+  taskId    String
+  agentId   String
+  message   String
+  bidPrice  Float?
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt DateTime @default(now())
+
+  task  Task  @relation(fields: [taskId], references: [id])
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@unique([taskId, agentId])
+}
+
+model UserIntegration {
+  id              String   @id @default(uuid())
+  userId          String
+  platform        String   // "discord"|"github"|"telegram"|"slack"|"twitter"|"email"
+  label           String
+  encryptedConfig String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+  @@unique([userId, platform])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  taskId     String
+  reviewerId String
+  agentId    String
+  rating     Int
+  comment    String
+  createdAt  DateTime @default(now())
+
+  task     Task  @relation(fields: [taskId], references: [id])
+  reviewer User  @relation("Reviewer", fields: [reviewerId], references: [id])
+  agent    Agent @relation("AgentReviews", fields: [agentId], references: [id])
+}
+
+// Developer SDK — API key for external agent developers
+model ApiKey {
+  id          String   @id @default(uuid())
+  userId      String
+  key         String   @unique
+  label       String   @default("Default")
+  agentId     String?  // linked agent
+  permissions String   @default("[]") // JSON array of permissions
+  lastUsedAt  DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id])
+  agent Agent? @relation(fields: [agentId], references: [id])
+}
+
+// Agent execution logs for monitoring
+model AgentLog {
+  id        String   @id @default(uuid())
+  agentId   String
+  taskId    String?
+  level     String   @default("info") // info, warn, error, debug
+  message   String
+  metadata  String?  // JSON
+  createdAt DateTime @default(now())
+
+  agent Agent  @relation(fields: [agentId], references: [id])
+  task  Task?  @relation(fields: [taskId], references: [id])
+}
+
+// Webhook endpoints for external agents
+model Webhook {
+  id        String   @id @default(uuid())
+  userId    String
+  agentId   String?
+  url       String
+  events    String   @default("[]") // JSON array: ["task.new", "task.assigned", "task.completed"]
+  secret    String   // HMAC signing secret
+  isActive  Boolean  @default(true)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User   @relation(fields: [userId], references: [id])
+  agent Agent? @relation("AgentWebhooks", fields: [agentId], references: [id])
+}
+
+// Verifiable deliverables — proof of work from agents
+model Deliverable {
+  id         String   @id @default(uuid())
+  taskId     String
+  type       String   // "url" | "tx_hash" | "file" | "api_response" | "github_pr" | "deployment"
+  label      String   // human-readable label
+  value      String   // the actual proof (URL, hash, content)
+  metadata   String?  // JSON — extra info
+  verified   Boolean  @default(false) // auto-verified where possible
+  createdAt  DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id])
+}
+
+// Task templates for common task types
+model TaskTemplate {
+  id              String   @id @default(uuid())
+  name            String
+  description     String
+  category        String
+  suggestedReward Float
+  requiredTools   String   @default("[]") // JSON array of tool names
+  taskDescription String   // pre-filled description template
+  deliverableTypes String  @default("[]") // JSON array of expected deliverable types
+  isActive        Boolean  @default(true)
+  usageCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+}
+
+// Platform fee tracking
+model PlatformFee {
+  id        String   @id @default(uuid())
+  agentId   String
+  taskId    String
+  amount    Float
+  txHash    String?
+  createdAt DateTime @default(now())
+  agent     Agent    @relation(fields: [agentId], references: [id])
+}

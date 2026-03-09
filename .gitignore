@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+.env
+.env.local
+apps/api/.env
+*.log
+.turbo
+coverage
+*.db
+*.db-journal
+artifacts
+cache
+typechain-types
